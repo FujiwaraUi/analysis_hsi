@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python src/claude_make_mock\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
