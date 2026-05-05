@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi log --oneline -5)",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi add README.md article_note.txt .gitignore src/claude_make_mock_araki.py \"old_files/make_mock_non_csv/claude_make_mock.jp.py\" \"old_files/make_mock_non_csv/claude_make_mock.py\")",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi status)",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi rm --cached .DS_Store)",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi add .gitignore)",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi commit -m ' *)",
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi push)"
+    ]
+  }
+}

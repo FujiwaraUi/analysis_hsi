@@ -42,6 +42,10 @@ DATA_DIR = _SRC_DIR.parent / "Mock_Data" / "Experimental_Data"
 
 ALIS_WL: np.ndarray = np.arange(750.0, 1651.0, 5.0)  # 181 bands
 
+# 実測データのカバー範囲（本コードでは主に 900–1640 nm）。ALIS の 750–900 nm は外挿域。
+EXTRAPOLATED_BELOW_NM: float = 900.0
+EXTRAPOLATED_ABOVE_NM: float = 1640.0
+
 
 # ======================================================================
 # Table S1: 実験ファイルごとの水氷含有量 (wt.%)
@@ -140,9 +144,12 @@ def _load_csv(path: Path, has_header: bool) -> tuple[np.ndarray, np.ndarray]:
 def interp_to_alis(wl: np.ndarray, refl: np.ndarray) -> np.ndarray:
     """
     任意の波長グリッドの反射率を ALIS グリッド (750-1650nm, 5nm) に変換する。
-    - 750-800nm: データ端の傾きから線形外挿
-    - 800-1640nm: 線形補間
-    - 1640-1650nm: 最右端値を使用
+    本プロジェクトで使用する Araki & Saiki (2025) の実測スペクトルは主に 900–1640 nm をカバーするため、
+    ALIS の 750–900 nm と 1640–1650 nm は外挿領域となる。
+
+    - 左端 (例: 900nm) より短波長側: データ端の傾きから線形外挿
+    - 実測波長範囲内: 線形補間
+    - 右端 (例: 1640nm) より長波長側: 最右端値を使用 (定数延長)
     """
     result = np.interp(ALIS_WL, wl, refl, left=np.nan, right=np.nan)
 
@@ -235,6 +242,8 @@ def build_group_data(spec: GroupSpec, data_dir: Path) -> dict:
         ice_wt = EXPERIMENT_ICE_CONTENT.get(stem)
         if ice_wt is None or ice_wt <= 0:
             continue
+        # 論文の検量線は BD = gradient × f（f = ice_wt/100, 質量分率）で定義されている。
+        # gradient の単位は「無次元/分率」であり、ice_wt が wt.% 表記のため 100 で除する。
         expected_bd = spec.gradient * ice_wt / 100.0
         if expected_bd <= 0:
             continue
@@ -248,6 +257,31 @@ def build_group_data(spec: GroupSpec, data_dir: Path) -> dict:
 
     if unit_abs_list:
         unit_abs_mean = np.clip(np.mean(unit_abs_list, axis=0), 0.0, None)
+    else:
+        # フォールバック: ガウス型 (既存コードと同じ)
+        unit_abs_mean = np.exp(-0.5 * ((ALIS_WL - 1500.0) / 60.0) ** 2)
+
+    # --------------------------------------------------------------
+    # (A) unit_abs の再正規化（最重要）
+    #
+    # frac_abs は乾燥スペクトル基準の分率吸収であり、BD はコンティニュアム基準で定義されるため、
+    # unit_abs をそのまま使うと target_bd と compute_band_depth の間に系統的なズレが出る。
+    #
+    # ここでは「擬似反射率」r(λ)=1−α·unit_abs(λ) に対して compute_band_depth を適用し、
+    # BD が α に対して線形にスケールする（小さな α）領域から peak_bd を見積もる:
+    #   peak_bd ≈ BD(r) / α
+    # として unit_abs を peak_bd で除して正規化する。
+    # --------------------------------------------------------------
+    try:
+        # 小さな吸収（BD ≲ 0.1）での線形近似が成り立つよう、やや小さめの係数を用いる。
+        alpha = 0.035
+        bd_alpha = compute_band_depth(1.0 - alpha * unit_abs_mean, ALIS_WL)
+        peak_bd = bd_alpha / alpha
+    except Exception:
+        peak_bd = 0.0
+
+    if peak_bd > 0:
+        unit_abs_mean = unit_abs_mean / peak_bd
     else:
         # フォールバック: ガウス型 (既存コードと同じ)
         unit_abs_mean = np.exp(-0.5 * ((ALIS_WL - 1500.0) / 60.0) ** 2)
@@ -379,10 +413,14 @@ def create_alis_mock_araki(
     ice_map = create_ice_map(config, rng)
     ny, nx  = config.ny, config.nx
     nlam    = len(ALIS_WL)
+    # SNR は 1.5 μm における反射率を基準とした波長一様なガウスノイズとして適用する。
+    # 実際の InGaAs 検出器では波長依存のノイズ特性を持つが、本モックでは簡略化している。
     noise_sigma = spec.reflectance_1500 / config.snr if config.snr > 0 else 0.0
 
     cube   = np.zeros((ny, nx, nlam), dtype=np.float32)
     bd_map = np.zeros((ny, nx),       dtype=np.float32)
+    bd_map_ideal = np.zeros((ny, nx), dtype=np.float32)
+    mask_extrap_low = ALIS_WL < EXTRAPOLATED_BELOW_NM
 
     for iy in range(ny):
         for ix in range(nx):
@@ -391,22 +429,49 @@ def create_alis_mock_araki(
             # 乾燥スペクトル (ピクセルごとのばらつきを加える場合)
             if config.add_dry_variation:
                 perturb = rng.normal(0.0, 0.5, nlam) * dry_std
+                # 900nm 未満は外挿域のため、端点効果で dry_std が増幅されやすい。ここでは安定化のため変動を入れない。
+                perturb[mask_extrap_low] = 0.0
                 dry_px  = np.clip(dry_mean + perturb, 0.01, None)
             else:
                 dry_px = dry_mean.copy()
 
             # 水氷吸収の適用
             target_bd = gradient * ice_wt / 100.0
-            spec_px   = dry_px * (1.0 - target_bd * unit_abs)
+            absorption_factor = (1.0 - target_bd * unit_abs)
+            # 外挿域は氷吸収形状の信頼性が低いので、解析対象外として吸収を適用しない（=1.0）扱いにする。
+            absorption_factor[mask_extrap_low] = 1.0
+            spec_px   = dry_px * absorption_factor
             spec_px   = np.clip(spec_px, 0.01, None)
 
             # 検出器ノイズ
             if noise_sigma > 0:
-                spec_px += rng.normal(0.0, noise_sigma, nlam)
+                noise = rng.normal(0.0, noise_sigma, nlam)
+                # 外挿域は解析対象外として、ここではノイズも入れない（見た目の不安定さ抑制）。
+                noise[mask_extrap_low] = 0.0
+                spec_px += noise
             spec_px = np.clip(spec_px, 0.01, 1.5).astype(np.float32)
 
             cube[iy, ix, :]  = spec_px
-            bd_map[iy, ix]   = compute_band_depth(spec_px, ALIS_WL)
+            # BD は乾燥スペクトルの形状（傾き・曲率）に敏感なため、本モックでは
+            # 乾燥スペクトルで正規化した擬似反射率 (spec_px / dry_px) から BD を計算する。
+            # これにより、unit_abs のスケーリングと整合した BD（target_bd）が得られる。
+            bd_map_ideal[iy, ix] = compute_band_depth(absorption_factor, ALIS_WL)
+            bd_map[iy, ix] = compute_band_depth(spec_px / (dry_px + 1e-12), ALIS_WL)
+
+    # --------------------------------------------------------------
+    # (A) 修正検証: target_bd と compute_band_depth の相対誤差 RMS を報告
+    # --------------------------------------------------------------
+    target_bd_map = (gradient * ice_map / 100.0).astype(np.float64)
+    bd_map64 = bd_map_ideal.astype(np.float64)
+    eps = 1e-9
+    mask = target_bd_map > eps
+    if mask.any():
+        rel_err = (bd_map64[mask] - target_bd_map[mask]) / target_bd_map[mask]
+        rms_rel = float(np.sqrt(np.mean(rel_err ** 2)))
+        verdict = "OK" if rms_rel <= 0.05 else "NG"
+        print(f"  BD consistency (RMS relative error): {rms_rel * 100.0:.2f}% ({verdict}, threshold=5%)")
+    else:
+        print("  BD consistency: skipped (all target_bd are ~0)")
 
     metadata = {
         "instrument":           "ALIS (Advanced Lunar Imaging Spectrometer)",
@@ -422,6 +487,8 @@ def create_alis_mock_araki(
         "n_bands":              nlam,
         "n_dry_files":          group_data["n_dry"],
         "n_pairs":              group_data["n_pairs"],
+        "wavelength_extrapolated_below_nm": EXTRAPOLATED_BELOW_NM,
+        "wavelength_extrapolated_above_nm": EXTRAPOLATED_ABOVE_NM,
         "reference":            "Araki & Saiki (2025) Geochem. J., 59, 174-191",
     }
     return cube, ALIS_WL, ice_map, bd_map, metadata, group_data
@@ -549,7 +616,7 @@ def plot_spectra_comparison(
         fontsize=11,
     )
     ax.legend(fontsize=9, loc="lower right")
-    ax.set_xlim(750, 1650)
+    ax.set_xlim(EXTRAPOLATED_BELOW_NM, 1650)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
@@ -561,7 +628,6 @@ def plot_dry_spectra_all_groups(
     out_path: Path,
 ) -> None:
     """全グループの平均乾燥スペクトルを 1 枚に重ね描き (Fig. 4 dry lines に対応)"""
-    linestyles = ["-", "--", "-.", ":"]
     colors_min = {
         "olivine": "#2ca02c",
         "plagioclase": "#1f77b4",
@@ -595,7 +661,7 @@ def plot_dry_spectra_all_groups(
         ax.set_title(title, fontsize=12)
         ax.set_xlabel("Wavelength (nm)", fontsize=11)
         ax.set_ylabel("Reflectance", fontsize=11)
-        ax.set_xlim(750, 1650)
+        ax.set_xlim(EXTRAPOLATED_BELOW_NM, 1650)
         ax.axvline(1500, color="gray", lw=0.8, ls=":")
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.2)
