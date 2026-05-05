@@ -3,6 +3,7 @@
         "/^python src/claude_make_mock\\.py$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "pdftotext": true
     }
 }
