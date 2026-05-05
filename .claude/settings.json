@@ -7,7 +7,9 @@
       "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi rm --cached .DS_Store)",
       "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi add .gitignore)",
       "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi commit -m ' *)",
-      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi push)"
+      "Bash(git -C /Users/fy/MyFolder/Code/analysis_hsi push)",
+      "Bash(python plot_araki.py)",
+      "Bash(python main.py)"
     ]
   }
 }
