@@ -1,0 +1,38 @@
+{
+  "config": {
+    "nx": 100,
+    "ny": 50,
+    "mineral_type": "clinopyroxene",
+    "grain_size": "fine",
+    "ice_content_min": 0.0,
+    "ice_content_max": 2.2,
+    "ice_pattern": "gradient",
+    "snr": 100,
+    "seed": 42,
+    "add_dry_variation": true
+  },
+  "metadata": {
+    "instrument": "ALIS (Advanced Lunar Imaging Spectrometer)",
+    "data_source": "Araki & Saiki (2025), DOI: 10.60574/87068",
+    "mineral_type": "clinopyroxene",
+    "grain_size": "fine",
+    "grain_size_um": 100,
+    "reflectance_1500": 0.665,
+    "gradient_experimental": 5.91,
+    "gradient_predicted_eq1": 5.060000000000002,
+    "ice_content_range_wt": [
+      0.0,
+      2.2
+    ],
+    "snr": 100,
+    "n_bands": 149,
+    "n_dry_files": 8,
+    "n_pairs": 8,
+    "wavelength_range_nm": [
+      900.0,
+      1640.0
+    ],
+    "reference": "Araki & Saiki (2025) Geochem. J., 59, 174-191"
+  },
+  "npz": "clinopyroxene_fine.npz"
+}

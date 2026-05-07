@@ -1,0 +1,38 @@
+{
+  "config": {
+    "nx": 100,
+    "ny": 50,
+    "mineral_type": "mixture",
+    "grain_size": "coarse",
+    "ice_content_min": 0.0,
+    "ice_content_max": 2.2,
+    "ice_pattern": "patches",
+    "snr": 80,
+    "seed": 42,
+    "add_dry_variation": true
+  },
+  "metadata": {
+    "instrument": "ALIS (Advanced Lunar Imaging Spectrometer)",
+    "data_source": "Araki & Saiki (2025), DOI: 10.60574/87068",
+    "mineral_type": "mixture",
+    "grain_size": "coarse",
+    "grain_size_um": 215,
+    "reflectance_1500": 0.509,
+    "gradient_experimental": 5.71,
+    "gradient_predicted_eq1": 6.9495000000000005,
+    "ice_content_range_wt": [
+      0.0,
+      2.2
+    ],
+    "snr": 80,
+    "n_bands": 149,
+    "n_dry_files": 5,
+    "n_pairs": 5,
+    "wavelength_range_nm": [
+      900.0,
+      1640.0
+    ],
+    "reference": "Araki & Saiki (2025) Geochem. J., 59, 174-191"
+  },
+  "npz": "mixture_coarse.npz"
+}
