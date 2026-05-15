@@ -11,7 +11,8 @@
       "Bash(python plot_araki.py)",
       "Bash(python main.py)",
       "Bash(python3 -)",
-      "Bash(python3 src/test_behavior.py)"
+      "Bash(python3 src/test_behavior.py)",
+      "Bash(python -m py_compile src/claude_make_mock_araki.py)"
     ]
   }
 }
