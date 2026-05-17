@@ -1,24 +1,12 @@
 """
-claude_make_mock_araki.py
+alis_mock_generator.py
 ==========================
-Araki & Saiki (2025) 実測データを使った ALIS モックハイパースペクトルデータ生成器
-
-既存の claude_make_mock.py (簡易ガウスモデル) との違い:
-  - 乾燥スペクトル : _dry.csv の実測値を読み込み・平均化して使用
-  - 水氷吸収形状   : fitted ice CSV と dry CSV の差分から実測プロファイルを抽出
-  - 校正線        : Table 2 の実験勾配値を使用 (Eq.1 予測値も参照として出力)
+Araki & Saiki (2025) 実測データを使ったHSIデータのMock生成プログラム
 
 参照:
   Araki, R. and Saiki, K. (2025) Geochem. J., 59, 174-191.
   DOI: 10.2343/geochemj.GJ25010
   データ DOI: 10.60574/87068  (Osaka University OUKA, 134 CSV ファイル)
-
-依存パッケージ: numpy
-可視化は plot_araki.py を参照。
-
-Docstring 規約:
-  主要関数 (build_group_data, create_alis_mock_araki) は NumPy style で記述。
-  内部ユーティリティ (_load_csv 等) は一行 docstring ＋インラインコメント。
 """
 
 from dataclasses import dataclass
@@ -183,7 +171,7 @@ def interp_to_alis(wl: np.ndarray, refl: np.ndarray) -> np.ndarray:
 # グループデータの構築
 # ======================================================================
 
-def build_group_data(spec: GroupSpec, data_dir: Path) -> dict[str, Any]:
+def load_group_spectra(spec: GroupSpec, data_dir: Path) -> dict[str, Any]:
     """
     指定グループの代表的な乾燥スペクトルと単位吸収プロファイルを構築する。
 
@@ -294,8 +282,8 @@ def build_group_data(spec: GroupSpec, data_dir: Path) -> dict[str, Any]:
 # ======================================================================
 
 @dataclass
-class ALISMockConfigAraki:
-    """ALIS モックキューブの生成設定 (Araki 実データ版)"""
+class ALISMockConfig:
+    """ALIS モックキューブの生成設定"""
     nx:  int   = 100
     ny:  int   = 50
     mineral_type: str  = "mixture"   # "olivine","plagioclase","clinopyroxene","mixture"
@@ -312,13 +300,13 @@ class ALISMockConfigAraki:
 # 氷量マップと BD 計算
 # ======================================================================
 
-def create_ice_map(config: ALISMockConfigAraki, rng: np.random.Generator) -> np.ndarray:
+def create_ice_map(config: ALISMockConfig, rng: np.random.Generator) -> np.ndarray:
     """
     氷含有量の 2 次元空間分布マップを生成する。
 
     Parameters
     ----------
-    config : ALISMockConfigAraki
+    config : ALISMockConfig
         生成設定。ice_content_min/max とパターン種別を参照する。
     rng : np.random.Generator
         乱数生成器。
@@ -390,8 +378,8 @@ def compute_band_depth(
 # モックキューブ生成メイン関数
 # ======================================================================
 
-def create_alis_mock_araki(
-    config:   ALISMockConfigAraki | None = None,
+def generate_alis_mock_cube(
+    config:   ALISMockConfig | None = None,
     data_dir: Path = DATA_DIR,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict, dict]:
     """
@@ -412,7 +400,7 @@ def create_alis_mock_araki(
     group_data : dict                       乾燥スペクトル等 (検証用)
     """
     if config is None:
-        config = ALISMockConfigAraki()
+        config = ALISMockConfig()
 
     rng  = np.random.default_rng(config.seed)
     key  = (config.mineral_type, config.grain_size)
@@ -422,7 +410,7 @@ def create_alis_mock_araki(
 
     # TODO: バッチ実行・外部呼び出しを想定する場合は logging.info() への移行が望ましい
     print(f"  Loading group data: {spec.mineral_folder} / {spec.grain_folder} ...", end="", flush=True)
-    group_data = build_group_data(spec, data_dir)
+    group_data = load_group_spectra(spec, data_dir)
     print(f" done ({group_data['n_dry']} dry, {group_data['n_pairs']} pairs)")
 
     dry_mean = group_data["dry_mean"]

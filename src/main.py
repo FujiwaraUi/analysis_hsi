@@ -6,11 +6,11 @@ main.py
 
 from pathlib import Path
 
-from claude_make_mock_araki import ALISMockConfigAraki, DATA_DIR, create_alis_mock_araki
-from plot_araki import (
+from alis_mock_generator import ALISMockConfig, DATA_DIR, generate_alis_mock_cube
+from alis_mock_plot import (
     plot_calibration,
     plot_dry_spectra_all_groups,
-    plot_montage,
+    plot_cube_overview,
     plot_spectra_comparison,
     plot_unit_absorption_profiles,
 )
@@ -26,21 +26,21 @@ if __name__ == "__main__":
     plot_unit_absorption_profiles(DATA_DIR, out_dir / "unit_absorption_profiles.png")
 
     configs = [
-        ALISMockConfigAraki(mineral_type="olivine",       grain_size="coarse",
+        ALISMockConfig(mineral_type="olivine",       grain_size="coarse",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="olivine",       grain_size="fine",
+        ALISMockConfig(mineral_type="olivine",       grain_size="fine",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="plagioclase",   grain_size="coarse",
+        ALISMockConfig(mineral_type="plagioclase",   grain_size="coarse",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="plagioclase",   grain_size="fine",
+        ALISMockConfig(mineral_type="plagioclase",   grain_size="fine",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="clinopyroxene", grain_size="coarse",
+        ALISMockConfig(mineral_type="clinopyroxene", grain_size="coarse",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="clinopyroxene", grain_size="fine",
+        ALISMockConfig(mineral_type="clinopyroxene", grain_size="fine",
                             ice_pattern="gradient", snr=100),
-        ALISMockConfigAraki(mineral_type="mixture",       grain_size="coarse",
+        ALISMockConfig(mineral_type="mixture",       grain_size="coarse",
                             ice_pattern="patches",  snr=80),
-        ALISMockConfigAraki(mineral_type="mixture",       grain_size="fine",
+        ALISMockConfig(mineral_type="mixture",       grain_size="fine",
                             ice_pattern="patches",  snr=80),
     ]
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         print(f"Generating: {cfg.mineral_type} ({cfg.grain_size})")
         print(f"{'='*60}")
 
-        cube, wl, ice_map, bd_map, meta, gd = create_alis_mock_araki(cfg, DATA_DIR)
+        cube, wl, ice_map, bd_map, meta, gd = generate_alis_mock_cube(cfg, DATA_DIR)
 
         print(f"  Cube shape           : {cube.shape}")
         print(f"  Wavelength range     : {wl[0]:.0f}–{wl[-1]:.0f} nm ({len(wl)} bands)")
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         plot_calibration(ice_map, bd_map, meta, out_dir / f"{tag}_calibration.png")
         print(f"  calibration.png -> {out_dir / f'{tag}_calibration.png'}")
 
-        plot_montage(cube, ice_map, bd_map, meta, out_dir / f"{tag}_montage.png")
+        plot_cube_overview(cube, ice_map, bd_map, meta, out_dir / f"{tag}_montage.png")
         print(f"  montage.png     -> {out_dir / f'{tag}_montage.png'}")
 
         plot_spectra_comparison(cube, ice_map, gd, meta,

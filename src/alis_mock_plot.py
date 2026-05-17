@@ -1,7 +1,7 @@
 """
-plot_araki.py
+alis_mock_plot.py
 ==============
-claude_make_mock_araki.py が生成したモックキューブの可視化モジュール。
+alis_mock_generator.py が生成したモックキューブの可視化モジュール。
 スクリプトとして直接実行すると全グループのキューブを生成してプロットを保存する。
 
 依存パッケージ: numpy, matplotlib
@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-from claude_make_mock_araki import (
+from alis_mock_generator import (
     ALIS_WL,
     GROUP_SPECS,
-    build_group_data,
+    load_group_spectra,
     interp_to_alis,
     _load_csv,
 )
@@ -66,14 +66,14 @@ def plot_calibration(
     plt.close(fig)
 
 
-def plot_montage(
+def plot_cube_overview(
     cube:     np.ndarray,
     ice_map:  np.ndarray,
     bd_map:   np.ndarray,
     metadata: dict,
     out_path: Path,
 ) -> None:
-    """代表バンド反射率 + 氷量マップ + BD マップのモンタージュ"""
+    """代表バンド反射率 + 氷量マップ + BD マップの概観プロット"""
     wl_min, wl_max = metadata["wavelength_range_nm"]
 
     # 実験データの有効範囲 (ALIS_WL[0]–ALIS_WL[-1]) 内から代表波長を選択
@@ -173,7 +173,7 @@ def plot_dry_spectra_all_groups(
             key  = (mineral, grain_key)
             spec = GROUP_SPECS[key]
             try:
-                gd = build_group_data(spec, data_dir)
+                gd = load_group_spectra(spec, data_dir)
             except FileNotFoundError:
                 continue
             color   = colors_min[mineral]
@@ -223,7 +223,7 @@ def plot_unit_absorption_profiles(
             key  = (mineral, grain_key)
             spec = GROUP_SPECS[key]
             try:
-                gd = build_group_data(spec, data_dir)
+                gd = load_group_spectra(spec, data_dir)
             except FileNotFoundError:
                 continue
             ax.plot(ALIS_WL, gd["unit_abs"], color=colors[mineral], lw=2.0, label=mineral)
