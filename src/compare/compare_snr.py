@@ -7,18 +7,21 @@ ice_pattern="gradient" 固定で SNR を 0, 50, 100, 150, 200 と変えて
 SNR=0 はノイズなし (noise_sigma=0) の理想ケース。
 SNR が大きいほど noise_sigma = R(1.5μm)/SNR が小さくなる（高品質）。
 
-出力 (alis_mock_output_araki_comp/):
+出力 (src/compare/comp_plot/):
   snr_comparison_spatial.png   — 氷量マップ(共通) + 各 SNR の BD マップ
   snr_comparison_bd_vs_ice.png — BD–ice 散布図と BD ヒストグラム
   snr_comparison_spectra.png   — 代表ピクセルのスペクトル比較
 """
 
+import sys
 import matplotlib
 matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 import matplotlib.cm as mcm
 import numpy as np
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from alis_mock_generator import (
     ALIS_WL,
@@ -67,10 +70,8 @@ def plot_spatial_comparison(results: dict[int, dict], out_path: Path) -> None:
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     axes_flat = axes.ravel()
 
-    # ice_map は全 SNR で同一 (同 seed / 同パターン)
-    ice_map  = results[SNR_VALUES[0]]["ice_map"]
-    bd_vmax  = max(r["bd_map"].max() for r in results.values())
-    bd_vmin  = 0.0
+    ice_map = results[SNR_VALUES[0]]["ice_map"]
+    bd_vmax = max(r["bd_map"].max() for r in results.values())
 
     im_ice = axes_flat[0].imshow(ice_map, origin="lower", cmap="Blues",
                                   vmin=0, vmax=ice_map.max())
@@ -82,7 +83,7 @@ def plot_spatial_comparison(results: dict[int, dict], out_path: Path) -> None:
     for ax_idx, snr in enumerate(SNR_VALUES, start=1):
         bd_map = results[snr]["bd_map"]
         im_bd  = axes_flat[ax_idx].imshow(
-            bd_map, origin="lower", cmap="magma", vmin=bd_vmin, vmax=bd_vmax,
+            bd_map, origin="lower", cmap="magma", vmin=0, vmax=bd_vmax,
         )
         axes_flat[ax_idx].set_title(snr_label(snr), fontsize=11, fontweight="bold")
         axes_flat[ax_idx].set_xlabel("x (pixel)")
@@ -116,7 +117,6 @@ def plot_bd_vs_ice(results: dict[int, dict], out_path: Path) -> None:
         100,
     )
 
-    # --- 散布図 ---
     ax = axes[0]
     for snr in SNR_VALUES:
         r        = results[snr]
@@ -141,7 +141,6 @@ def plot_bd_vs_ice(results: dict[int, dict], out_path: Path) -> None:
     ax.grid(True, alpha=0.3)
     ax.set_xlim(left=0)
 
-    # --- BD ヒストグラム ---
     ax2 = axes[1]
     for snr in SNR_VALUES:
         bd_flat = results[snr]["bd_map"].ravel()
@@ -173,7 +172,6 @@ def plot_spectra_comparison(results: dict[int, dict], out_path: Path) -> None:
     quantiles = [0.95, 0.50, 0.05]
     q_labels  = ["High ice (95th pctile)", "Mid ice (50th pctile)", "Low ice (5th pctile)"]
 
-    # 代表ピクセル座標は SNR=0 の ice_map (全 SNR 共通) から決める
     ice_map_ref = results[SNR_VALUES[0]]["ice_map"]
     ice_flat    = ice_map_ref.ravel()
 
@@ -219,7 +217,7 @@ def plot_spectra_comparison(results: dict[int, dict], out_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    out_dir = Path(__file__).parent / "alis_mock_output_araki_comp"
+    out_dir = Path(__file__).parent / "comp_plot"
     out_dir.mkdir(exist_ok=True)
 
     results = generate_all_snr(DATA_DIR)

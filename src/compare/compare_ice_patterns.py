@@ -4,17 +4,20 @@ compare_ice_patterns.py
 ice_pattern = "gradient" / "patches" / "uniform" の 3 パターンを
 同一条件で生成し、空間分布・BD 分布・スペクトルを並べて比較する。
 
-出力 (alis_mock_output_araki/):
-  pattern_comparison_spatial.png  — 氷量マップ・BD マップの空間比較
+出力 (src/compare/comp_plot/):
+  pattern_comparison_spatial.png   — 氷量マップ・BD マップの空間比較
   pattern_comparison_bd_vs_ice.png — BD–ice 散布図と BD ヒストグラム
-  pattern_comparison_spectra.png  — 代表ピクセルのスペクトル比較
+  pattern_comparison_spectra.png   — 代表ピクセルのスペクトル比較
 """
 
+import sys
 import matplotlib
 matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from alis_mock_generator import (
     ALIS_WL,
@@ -107,7 +110,6 @@ def plot_bd_vs_ice(results: dict[str, dict], out_path: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     rng_plot  = np.random.default_rng(0)
 
-    # --- 散布図 ---
     ax = axes[0]
     for pattern in PATTERNS:
         r        = results[pattern]
@@ -137,7 +139,6 @@ def plot_bd_vs_ice(results: dict[str, dict], out_path: Path) -> None:
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=-0.005)
 
-    # --- BD ヒストグラム ---
     ax2 = axes[1]
     for pattern in PATTERNS:
         bd_flat = results[pattern]["bd_map"].ravel()
@@ -210,13 +211,13 @@ def plot_spectra_comparison(results: dict[str, dict], out_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    out_dir = Path(__file__).parent / "alis_mock_output_araki_comp"
+    out_dir = Path(__file__).parent / "comp_plot"
     out_dir.mkdir(exist_ok=True)
 
     results = generate_all_patterns(DATA_DIR)
 
     plot_spatial_comparison(results, out_dir / "pattern_comparison_spatial.png")
-    plot_bd_vs_ice(results,         out_dir / "pattern_comparison_bd_vs_ice.png")
+    plot_bd_vs_ice(results,          out_dir / "pattern_comparison_bd_vs_ice.png")
     plot_spectra_comparison(results, out_dir / "pattern_comparison_spectra.png")
 
     print(f"\nDone. All outputs saved to: {out_dir}/")
