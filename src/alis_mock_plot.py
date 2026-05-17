@@ -112,6 +112,68 @@ def plot_cube_overview(
     plt.close(fig)
 
 
+def plot_cube_single_band(
+    cube: np.ndarray,
+    target_wavelength_nm: float,
+    wavelengths_nm: np.ndarray = ALIS_WL,
+    out_dir: Path | None = None,
+    *,
+    cmap: str = "viridis",
+) -> Path:
+    """
+    モックキューブから代表バンド 1 枚のみを描画して保存する。
+
+    Parameters
+    ----------
+    cube : np.ndarray, shape (ny, nx, n_bands)
+        反射率キューブ。
+    target_wavelength_nm : float
+        プロットしたい波長 (nm)。最も近いバンドを選択する。
+    wavelengths_nm : np.ndarray, shape (n_bands,)
+        cube の波長配列 (nm)。省略時は ALIS_WL を使用。
+    out_dir : Path | None
+        保存先ディレクトリ。省略時は `src/plot/` (= このファイルの隣の plot/)。
+    cmap : str
+        画像のカラーマップ。
+
+    Returns
+    -------
+    Path
+        保存した PNG パス。
+    """
+    if cube.ndim != 3:
+        raise ValueError(f"cube must be 3D (ny, nx, n_bands), got shape={cube.shape}")
+    if len(wavelengths_nm) != cube.shape[2]:
+        raise ValueError(
+            "wavelengths_nm length must match cube.shape[2], "
+            f"got len(wavelengths_nm)={len(wavelengths_nm)} vs cube.shape[2]={cube.shape[2]}"
+        )
+
+    if out_dir is None:
+        out_dir = Path(__file__).parent / "plot"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    bidx = int(np.argmin(np.abs(wavelengths_nm - target_wavelength_nm)))
+    wl_actual = float(wavelengths_nm[bidx])
+    wl_label = int(round(float(target_wavelength_nm)))
+    out_path = out_dir / f"{wl_label}_plot.png"
+
+    band_img = cube[:, :, bidx]
+    vmin_r, vmax_r = float(np.percentile(band_img, 2)), float(np.percentile(band_img, 98))
+
+    fig, ax = plt.subplots(figsize=(7.5, 6))
+    im = ax.imshow(band_img, origin="lower", cmap=cmap, vmin=vmin_r, vmax=vmax_r)
+    ax.set_title(f"Band image @ {wl_actual:.0f} nm (requested {target_wavelength_nm:.0f} nm)")
+    ax.set_xlabel("x (pixel)")
+    ax.set_ylabel("y (pixel)")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Reflectance")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    return out_path
+
+
 def plot_spectra_comparison(
     cube:       np.ndarray,
     ice_map:    np.ndarray,
